@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Prediksi Demam</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.10.0/tf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: #5a67d8;
+            background: #f7fafc;
+        }
+        
+        .upload-area.dragover {
+            border-color: #48bb78;
+            background: #f0fff4;
+        }
+        
+        .upload-icon {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+        
+        .btn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+        
+        .status.info {
+            background: #bee3f8;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        
+        .checkbox-item:hover {
+            border-color: #667eea;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .result.fever {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+        
+        .result.no-fever {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+        }
+        
+        .model-info {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🩺 ML Prediksi Demam</h1>
+            <p>Sistem Machine Learning untuk memprediksi demam berdasarkan gejala klinis</p>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h2>📁 Upload Dataset</h2>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📤</div>
+                    <h3>Drag & Drop file CSV di sini</h3>
+                    <p>atau klik untuk memilih file</p>
+                    <input type="file" id="fileInput" class="file-input" accept=".csv" />
+                    <button class="btn" onclick="document.getElementById('fileInput').click()">
+                        Pilih File CSV
+                    </button>
+                </div>
+                <div id="uploadStatus"></div>
+            </div>
+            
+            <div class="section">
+                <h2>🤖 Training Model</h2>
+                <button class="btn" id="trainBtn" onclick="trainModel()" disabled>
+                    Train Model Machine Learning
+                </button>
+                <div class="progress-bar" id="trainingProgress" style="display: none;">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div id="trainingStatus"></div>
+                <div id="modelInfo" class="model-info" style="display: none;">
+                    <h4>📊 Informasi Model:</h4>
+                    <p id="modelAccuracy"></p>
+                    <p id="modelSamples"></p>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>🔍 Prediksi Demam</h2>
+                <div class="form-group">
+                    <label for="temperature">Suhu Tubuh (°C):</label>
+                    <input type="number" id="temperature" class="form-control" step="0.1" min="35" max="42" placeholder="Contoh: 37.5">
+                </div>
+                
+                <div class="form-group">
+                    <label>Gejala yang Dialami:</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="batuk">
+                            <label for="batuk">🤧 Batuk</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="pilek">
+                            <label for="pilek">👃 Pilek</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="sakit_kepala">
+                            <label for="sakit_kepala">🤕 Sakit Kepala</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="nyeri_otot">
+                            <label for="nyeri_otot">💪 Nyeri Otot</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="sakit_tenggorokan">
+                            <label for="sakit_tenggorokan">🗣️ Sakit Tenggorokan</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="mual">
+                            <label for="mual">🤢 Mual</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="btn" id="predictBtn" onclick="predict()" disabled>
+                    🔮 Prediksi Demam
+                </button>
+                
+                <div id="predictionResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let model = null;
+        let trainingData = null;
+        let scaler = { mean: null, std: null };
+
+        // Handle file upload
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) handleFile(files[0]);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFile(e.target.files[0]);
+        });
+
+        function handleFile(file) {
+            if (!file.name.endsWith('.csv')) {
+                showStatus('uploadStatus', 'error', '❌ File harus berformat CSV!');
+                return;
+            }
+
+            showStatus('uploadStatus', 'info', '📊 Memproses file CSV...');
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                dynamicTyping: true,
+                delimitersToGuess: [',', '\t', '|', ';'],
+                transformHeader: function(header) {
+                    return header.trim(); // Remove whitespace from headers
+                },
+                complete: function(results) {
+                    // Filter out parsing errors that are just warnings about field count
+                    const criticalErrors = results.errors.filter(error => 
+                        error.type !== 'FieldMismatch' && error.code !== 'TooFewFields' && error.code !== 'TooManyFields'
+                    );
+                    
+                    if (criticalErrors.length > 0) {
+                        showStatus('uploadStatus', 'error', '❌ Error parsing CSV: ' + criticalErrors[0].message);
+                        return;
+                    }
+                    
+                    // Show warnings if any
+                    if (results.errors.length > 0) {
+                        console.warn('CSV Parsing Warnings:', results.errors);
+                    }
+
+                    // Clean and validate data
+                    const cleanedData = results.data.filter(row => {
+                        // Check if row has required fields
+                        return row && row.Suhu !== undefined && row.Suhu !== null && row.Suhu !== '';
+                    }).map(row => {
+                        // Fill missing values with defaults
+                        return {
+                            Suhu: parseFloat(row.Suhu) || 36.5,
+                            Batuk: row.Batuk || 'no',
+                            Pilek: row.Pilek || 'no',
+                            Sakit_kepala: row.Sakit_kepala || 'no',
+                            Nyeri_otot: row.Nyeri_otot || 'no',
+                            Sakit_tenggorokan: row.Sakit_tenggorokan || 'no',
+                            Mual: row.Mual || 'no',
+                            Diagnosis: row.Diagnosis || 'no'
+                        };
+                    });
+
+                    trainingData = cleanedData;
+                    showStatus('uploadStatus', 'success', 
+                        `✅ Dataset berhasil dimuat! ${trainingData.length} data valid tersedia.
+                        ${results.data.length !== trainingData.length ? 
+                          `<br>⚠️ ${results.data.length - trainingData.length} baris data tidak valid telah dibersihkan.` : ''}`);
+                    
+                    document.getElementById('trainBtn').disabled = false;
+                    
+                    // Show data preview
+                    const preview = trainingData.slice(0, 3).map((row, idx) => 
+                        `${idx + 1}. Suhu: ${row.Suhu}°C, Diagnosis: ${row.Diagnosis === 'yes' ? 'Demam' : 'Normal'}`
+                    ).join('<br>');
+                    
+                    const statusElement = document.getElementById('uploadStatus');
+                    statusElement.innerHTML += `<br><br><strong>📋 Preview Data:</strong><br>${preview}
+                        ${trainingData.length > 3 ? '<br>...' : ''}`;
+                }
+            });
+            };
+        
+
+        function preprocessData(data) {
+            const features = [];
+            const labels = [];
+
+            data.forEach((row, index) => {
+                try {
+                    // Validate and parse temperature
+                    let temperature = parseFloat(row.Suhu);
+                    if (isNaN(temperature) || temperature < 30 || temperature > 45) {
+                        console.warn(`Row ${index + 1}: Invalid temperature ${row.Suhu}, using default 37.0`);
+                        temperature = 37.0;
+                    }
+
+                    const feature = [
+                        temperature,
+                        (row.Batuk && row.Batuk.toLowerCase() === 'yes') ? 1 : 0,
+                        (row.Pilek && row.Pilek.toLowerCase() === 'yes') ? 1 : 0,
+                        (row.Sakit_kepala && row.Sakit_kepala.toLowerCase() === 'yes') ? 1 : 0,
+                        (row.Nyeri_otot && row.Nyeri_otot.toLowerCase() === 'yes') ? 1 : 0,
+                        (row.Sakit_tenggorokan && row.Sakit_tenggorokan.toLowerCase() === 'yes') ? 1 : 0,
+                        (row.Mual && row.Mual.toLowerCase() === 'yes') ? 1 : 0
+                    ];
+                    
+                    features.push(feature);
+                    labels.push((row.Diagnosis && row.Diagnosis.toLowerCase() === 'yes') ? 1 : 0);
+                } catch (error) {
+                    console.warn(`Row ${index + 1}: Error processing data`, error);
+                }
+            });
+
+            // Normalize temperature feature
+            const temperatures = features.map(f => f[0]);
+            const tempMean = temperatures.reduce((a, b) => a + b) / temperatures.length;
+            const tempStd = Math.sqrt(temperatures.reduce((a, b) => a + Math.pow(b - tempMean, 2), 0) / temperatures.length);
+            
+            scaler.mean = tempMean;
+            scaler.std = tempStd;
+
+            features.forEach(feature => {
+                feature[0] = (feature[0] - tempMean) / tempStd;
+            });
+
+            return { features, labels };
+        }
+
+        async function trainModel() {
+            if (!trainingData) return;
+
+            showStatus('trainingStatus', 'info', '🚀 Memulai training model...');
+            document.getElementById('trainingProgress').style.display = 'block';
+            document.getElementById('trainBtn').disabled = true;
+
+            const { features, labels } = preprocessData(trainingData);
+
+            const xs = tf.tensor2d(features);
+            const ys = tf.tensor2d(labels, [labels.length, 1]);
+
+            // Create model
+            model = tf.sequential({
+                layers: [
+                    tf.layers.dense({ inputShape: [7], units: 16, activation: 'relu' }),
+                    tf.layers.dropout({ rate: 0.2 }),
+                    tf.layers.dense({ units: 8, activation: 'relu' }),
+                    tf.layers.dropout({ rate: 0.1 }),
+                    tf.layers.dense({ units: 1, activation: 'sigmoid' })
+                ]
+            });
+
+            model.compile({
+                optimizer: tf.train.adam(0.001),
+                loss: 'binaryCrossentropy',
+                metrics: ['accuracy']
+            });
+
+            // Training with progress
+            const epochs = 100;
+            let currentEpoch = 0;
+
+            const history = await model.fit(xs, ys, {
+                epochs: epochs,
+                batchSize: 8,
+                validationSplit: 0.2,
+                callbacks: {
+                    onEpochEnd: (epoch, logs) => {
+                        currentEpoch = epoch + 1;
+                        const progress = (currentEpoch / epochs) * 100;
+                        document.getElementById('progressFill').style.width = progress + '%';
+                        
+                        if (currentEpoch % 10 === 0) {
+                            showStatus('trainingStatus', 'info', 
+                                `🔄 Training... Epoch ${currentEpoch}/${epochs} - Accuracy: ${(logs.acc * 100).toFixed(2)}%`);
+                        }
+                    }
+                }
+            });
+
+            // Calculate final accuracy
+            const predictions = model.predict(xs);
+            const predictionData = await predictions.data();
+            const actualData = await ys.data();
+            
+            let correct = 0;
+            for (let i = 0; i < predictionData.length; i++) {
+                const predicted = predictionData[i] > 0.5 ? 1 : 0;
+                if (predicted === actualData[i]) correct++;
+            }
+            
+            const accuracy = (correct / predictionData.length * 100).toFixed(2);
+
+            showStatus('trainingStatus', 'success', 
+                `✅ Model berhasil di-train! Akurasi: ${accuracy}%`);
+            
+            document.getElementById('modelInfo').style.display = 'block';
+            document.getElementById('modelAccuracy').textContent = `Akurasi Model: ${accuracy}%`;
+            document.getElementById('modelSamples').textContent = `Jumlah Data Training: ${features.length} samples`;
+            document.getElementById('predictBtn').disabled = false;
+
+            // Cleanup tensors
+            xs.dispose();
+            ys.dispose();
+            predictions.dispose();
+        }
+
+        function predict() {
+            if (!model) {
+                showStatus('predictionResult', 'error', '❌ Model belum di-train!');
+                return;
+            }
+
+            const temperature = parseFloat(document.getElementById('temperature').value);
+            if (isNaN(temperature)) {
+                showStatus('predictionResult', 'error', '❌ Mohon masukkan suhu tubuh yang valid!');
+                return;
+            }
+
+            const batuk = document.getElementById('batuk').checked ? 1 : 0;
+            const pilek = document.getElementById('pilek').checked ? 1 : 0;
+            const sakit_kepala = document.getElementById('sakit_kepala').checked ? 1 : 0;
+            const nyeri_otot = document.getElementById('nyeri_otot').checked ? 1 : 0;
+            const sakit_tenggorokan = document.getElementById('sakit_tenggorokan').checked ? 1 : 0;
+            const mual = document.getElementById('mual').checked ? 1 : 0;
+
+            // Normalize temperature
+            const normalizedTemp = (temperature - scaler.mean) / scaler.std;
+
+            const input = tf.tensor2d([[normalizedTemp, batuk, pilek, sakit_kepala, nyeri_otot, sakit_tenggorokan, mual]]);
+            const prediction = model.predict(input);
+            
+            prediction.data().then(result => {
+                const probability = result[0];
+                const hasFever = probability > 0.5;
+                const confidence = (hasFever ? probability : 1 - probability) * 100;
+
+                const resultDiv = document.getElementById('predictionResult');
+                resultDiv.innerHTML = `
+                    <div class="result ${hasFever ? 'fever' : 'no-fever'}">
+                        ${hasFever ? '🔥 DEMAM TERDETEKSI' : '✅ TIDAK DEMAM'}
+                        <br>
+                        <small>Tingkat Kepercayaan: ${confidence.toFixed(1)}%</small>
+                        <br><br>
+                        <small>Suhu: ${temperature}°C | Gejala: ${[batuk, pilek, sakit_kepala, nyeri_otot, sakit_tenggorokan, mual].filter(x => x).length}/6</small>
+                    </div>
+                `;
+
+                // Cleanup tensor
+                input.dispose();
+                prediction.dispose();
+            });
+        }
+
+        function showStatus(elementId, type, message) {
+            const element = document.getElementById(elementId);
+            element.className = `status ${type}`;
+            element.innerHTML = message;
+        }
+
+        // Initialize
+        console.log('🚀 ML Prediksi Demam siap digunakan!');
+        console.log('📊 Upload dataset CSV untuk memulai training');
+    </script>
+</body>
+</html>
