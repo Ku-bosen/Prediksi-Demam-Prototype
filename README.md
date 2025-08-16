@@ -1,1 +1,2 @@
-Masih dalam Proses Pengembangan, Jangan dijadikan patokan!!!!
+Language Indonesia
+JANGAN JADIKAN PATOKAN, masih dalam proses pengembangan
